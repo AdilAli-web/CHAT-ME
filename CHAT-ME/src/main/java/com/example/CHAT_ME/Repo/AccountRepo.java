@@ -12,4 +12,6 @@ public interface AccountRepo extends JpaRepository<Account,String> {
     List<Account> findTop20ByUserNameStartingWithAndUserNameNotOrderByUserName(String prefix,String exclude);
 
 //    Optional<Account> findByUserName(String userName);;
+
+    List<Account> findByUserNameIn(List<String> userNames);
 }

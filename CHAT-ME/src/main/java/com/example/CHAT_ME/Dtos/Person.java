@@ -15,4 +15,6 @@ public class Person {
     private String phoneNo;
 
 
+    public Person(String userName, String displayName) {
+    }
 }

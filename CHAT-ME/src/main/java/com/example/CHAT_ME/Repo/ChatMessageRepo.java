@@ -4,6 +4,7 @@ import com.example.CHAT_ME.Entity.ChatMessage;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
@@ -22,12 +23,30 @@ public interface ChatMessageRepo extends JpaRepository<ChatMessage,Long> {
         """)
     List<ChatMessage> history(String me, String peer, long before, Pageable page);
 
-    @Query(
-            "select m from ChatMessage m where m.id in (" +
-                    " select max(c.id) from ChatMessage c " +
-                    " where (c.sender = :me or c.recipient = :me) " +
-                    " group by c.sender, c.recipient" +
-                    ") order by m.id desc"
+
+//    @Query("""
+//    SELECT m FROM ChatMessage m
+//    WHERE (m.sender = :me OR m.recipient = :me)
+//    AND m.id IN (
+//        SELECT MAX(c.id)
+//        FROM ChatMessage c
+//        WHERE c.sender = :me OR c.recipient = :me
+//        GROUP BY c.sender, c.recipient
+//    )
+//    ORDER BY m.id DESC
+//    """)
+//    List<ChatMessage> conversations(@Param("me") String me);
+
+    @Query("""
+    SELECT m FROM ChatMessage m
+    WHERE m.id IN (
+        SELECT MAX(c.id)
+        FROM ChatMessage c
+        WHERE c.sender = :me OR c.recipient = :me
+        GROUP BY c.sender, c.recipient
     )
-    List<ChatMessage> conversations( String me);
+    ORDER BY m.id DESC
+    """)
+    List<ChatMessage> conversations(@Param("me") String me);
+
 }

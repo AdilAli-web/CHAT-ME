@@ -29,6 +29,7 @@ public class Registration {
 
     private String password;
 
+    @NotBlank(message = "Phone number is required")
     @Pattern(
             regexp = "^[6-9]\\d{9}$",
             message = "Enter a valid 10-digit Indian mobile number"
