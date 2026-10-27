@@ -15,10 +15,10 @@ public class Account {
     @Column(nullable = false,length = 50)
     public String displayName;
 
+@Column(nullable = false,unique = true)
+public String phoneNo;
 
-    @NotBlank(message = "Password is required")
-    @Size(min = 8, max = 128, message = "Password must be between 8 and 128 characters")
-    @Column(nullable = false,length = 50)
+    @Column(nullable = false, length = 255)
     public String passwordHash;
 
 
@@ -31,9 +31,10 @@ public class Account {
 
     }
 
-    public Account(String userName, String displayName, String passwordHash) {
+    public Account(String userName, String displayName, String passwordHash,String phoneNo) {
         this.userName = userName;
         this.displayName = displayName;
         this.passwordHash = passwordHash;
+        this.phoneNo=phoneNo;
     }
 }

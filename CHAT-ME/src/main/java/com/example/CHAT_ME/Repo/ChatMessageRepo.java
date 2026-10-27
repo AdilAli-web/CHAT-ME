@@ -3,8 +3,8 @@ package com.example.CHAT_ME.Repo;
 import com.example.CHAT_ME.Entity.ChatMessage;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.domain.Pageable;
 
-import java.awt.print.Pageable;
 import java.util.List;
 
 public interface ChatMessageRepo extends JpaRepository<ChatMessage,Long> {
