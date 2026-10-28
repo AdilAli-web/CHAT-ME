@@ -2,7 +2,7 @@
 
 CHAT-ME is a one-to-one chat backend built with Java 21, Spring Boot, Spring Data JPA, Hibernate, MySQL, Spring Security, and WebSocket.
 
-> **Project status: In development.** The repository has account registration, user search, conversation previews, paginated message history, session-based login configuration, CSRF token retrieval, and a WebSocket handler foundation. The end-to-end send-message API and several security/reliability details still need work.
+> **Project status: In development.** The repository has account registration, user search, conversation previews, paginated message history, session-based login configuration, CSRF token retrieval, and a WebSocket handler foundation. The HTTP send-message endpoint is wired in; WebSocket delivery is connected in the frontend. This is still a development project and needs integration testing before production use.
 
 ## Features in the codebase
 
@@ -80,7 +80,7 @@ WebSocket client ----> /ws ----> LiveUpdates
 | `GET` | `/api/conversations` | Authenticated; returns conversation previews |
 | `GET` | `/api/message/{peer}?before={id}` | Authenticated; returns a history page with IDs below `before` |
 
-**Not yet exposed:** `ChatService` contains a `send(OutGoing, currentUserName)` method, but `ChatController` does not currently define an HTTP endpoint for sending messages. WebSocket delivery is invoked by that service method, so sending is not yet wired end-to-end through the HTTP API.
+`POST /api/message` accepts a validated `OutGoing` DTO and derives the sender from the authenticated principal. The service checks that the recipient exists, rejects self-messaging and blank bodies, saves the message, and publishes the WebSocket event after the transaction commits.
 
 ## Main request flows
 
@@ -174,11 +174,11 @@ The repository currently contains a basic Spring Boot context-load test. A green
 
 ## Important follow-up work
 
-- Correct WebSocket origin injection and handshake session handling; verify the principal is authenticated.
+- Add browser-level integration tests for CORS, CSRF, session login, WebSocket handshakes, and live delivery.
 - Confirm the authenticated user identity is consistently used for all message operations.
-- Add an HTTP send-message endpoint (or explicitly design a WebSocket inbound-message protocol) and test the full path.
+- Add WebSocket reconnect/backoff behavior and integration tests for delivery to sender and recipient.
 - Validate that recipients exist and that message bodies are nonblank and within the intended size limit.
-- Publish WebSocket messages only after the database transaction commits.
+- Review response DTOs and account privacy before production deployment.
 - Fix latest-message query grouping so each peer appears exactly once with the true latest message across both directions.
 - Review response DTOs to ensure phone numbers and persistence entities are not exposed unnecessarily.
 - Improve duplicate-key error handling: a uniqueness conflict may be caused by the phone number, not only the username.
