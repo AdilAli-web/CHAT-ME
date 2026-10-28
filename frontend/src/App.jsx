@@ -175,21 +175,118 @@ function App() {
     setChecking(true);
     try {
       const user = await request("/api/me");
-      setMe(user); setAuthenticated(true); setIsDemo(false); setApiError("");
-      const conversationData = await request("/api/conversations");
-      const mapped = (conversationData || []).map((item) => {
-        const person = item.person || {};
-        const last = item.lastMessage || item.LastMessage || {};
-        return { userName: person.userName, displayName: person.displayName || person.userName, color: "mint", online: false, time: timeLabel(last.sentAt || last.createdAt), unread: 0, preview: last.body || "Start a conversation", messages: [], lastMessageId: last.id };
-      });
-      setChats(mapped);
-      setActiveId((current) => mapped.some((chat) => chat.userName === current) ? current : (mapped[0]?.userName || ""));
+      setMe(user);
+      setAuthenticated(true);
+      setIsDemo(false);
+      setApiError("");
+
+      try {
+        const conversationData = await request("/api/conversations");
+        const mapped = (conversationData || []).map((item) => {
+          const person = item.person || {};
+          const last = item.lastMessage || {};
+          return {
+            userName: person.userName,
+            displayName: person.displayName || person.userName,
+            color: "mint",
+            online: false,
+            time: timeLabel(last.sentAt || last.createdAt),
+            unread: 0,
+            preview: last.body || "Start a conversation",
+            messages: [],
+            lastMessageId: last.id,
+          };
+        });
+        setChats(mapped);
+        setActiveId((current) =>
+          mapped.some((chat) => chat.userName === current)
+            ? current
+            : (mapped[0]?.userName || "")
+        );
+      } catch (err) {
+        setApiError(`Signed in, but conversations could not load: ${err.message}`);
+        setChats([]);
+        setActiveId("");
+      }
     } catch {
-      setAuthenticated(false); setIsDemo(true);
-    } finally { setChecking(false); }
+      setAuthenticated(false);
+      setIsDemo(true);
+    } finally {
+      setChecking(false);
+    }
   }
 
   useEffect(() => { loadApp(); }, []);
+
+  // Use the authenticated session cookie for the WebSocket handshake.
+  useEffect(() => {
+    if (!authenticated || isDemo || !me?.userName) return undefined;
+
+    const socketUrl = `${API_URL.replace(/^http/, "ws")}/ws`;
+    const socket = new WebSocket(socketUrl);
+
+    socket.onmessage = (event) => {
+      try {
+        const incoming = JSON.parse(event.data);
+        if (!incoming?.sender || !incoming?.recipient || !incoming?.id) return;
+
+        const peer = incoming.sender === me.userName
+          ? incoming.recipient
+          : incoming.sender;
+        const own = incoming.sender === me.userName;
+        const normalized = {
+          ...incoming,
+          own,
+          sentAt: timeLabel(incoming.sentAt || incoming.createdAt),
+        };
+
+        setChats((items) => {
+          const exists = items.some((chat) => chat.userName === peer);
+          const current = items.find((chat) => chat.userName === peer);
+          const alreadyAdded = current?.messages?.some(
+            (message) => String(message.id) === String(incoming.id)
+          );
+          if (alreadyAdded) return items;
+
+          const updated = current
+            ? {
+                ...current,
+                preview: incoming.body || current.preview,
+                time: normalized.sentAt || "now",
+                unread: peer !== activeId && !own
+                  ? (current.unread || 0) + 1
+                  : current.unread || 0,
+                messages: peer === activeId
+                  ? [...(current.messages || []), normalized]
+                  : (current.messages || []),
+              }
+            : {
+                userName: peer,
+                displayName: peer,
+                color: "mint",
+                online: false,
+                time: normalized.sentAt || "now",
+                unread: peer !== activeId && !own ? 1 : 0,
+                preview: incoming.body || "",
+                messages: peer === activeId ? [normalized] : [],
+              };
+
+          return exists
+            ? updated ? items.map((chat) => chat.userName === peer ? updated : chat) : items
+            : [updated, ...items];
+        });
+      } catch {
+        // Ignore malformed WebSocket payloads rather than breaking the chat UI.
+      }
+    };
+
+    socket.onerror = () => {
+      setApiError("Live updates are unavailable. You can still refresh chats manually.");
+    };
+
+    return () => socket.close();
+  }, [authenticated, isDemo, me?.userName, activeId]);
+
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [activeId, chats]);
   useEffect(() => {
     if (authenticated && query.trim().length >= 1) {
