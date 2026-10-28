@@ -188,3 +188,17 @@ The repository currently contains a basic Spring Boot context-load test. A green
 ## Author
 
 **Adil Ali** · [GitHub](https://github.com/AdilAli-web)
+
+## Frontend preview (React + Vite)
+
+A WhatsApp-inspired responsive frontend is available in [frontend/](frontend/README.md). It includes a chat list, conversation view, message composer, search, registration, and session login UI.
+
+Run it locally:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The UI uses preview data when the backend has no authenticated session; messages sent in preview mode are local to the browser session. See [frontend setup and integration notes](frontend/README.md) for backend URL, CORS, CSRF, and current limitations.
