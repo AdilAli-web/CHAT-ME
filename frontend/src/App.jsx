@@ -236,7 +236,7 @@ function App() {
           ? incoming.recipient
           : incoming.sender;
         const own = incoming.sender === me.userName;
-        const isOpenPeer = isOpenPeerRef.current;
+        const isOpenPeer = peer === activeIdRef.current;
         const normalized = {
           ...incoming,
           own,
