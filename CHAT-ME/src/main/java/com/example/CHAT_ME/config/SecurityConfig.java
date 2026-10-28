@@ -1,12 +1,11 @@
 package com.example.CHAT_ME.config;
 import java.util.List;
-import org.springframework.context.annotation.Bean;
+import org.springframework.security.config.Customizer;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import com.example.CHAT_ME.Entity.Account;
 import com.example.CHAT_ME.Repo.AccountRepo;
-import com.example.CHAT_ME.webSocket.LiveUpdates;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,10 +28,11 @@ public class SecurityConfig  {
 
 
     @Bean
-    public SecurityFilterChain security(HttpSecurity http, LiveUpdates live)
+    public SecurityFilterChain security(HttpSecurity http)
             throws Exception {
 
         return http
+                .cors(Customizer.withDefaults())
                 .httpBasic(AbstractHttpConfigurer::disable)
 
                 .authorizeHttpRequests(auth -> auth
