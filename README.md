@@ -79,6 +79,7 @@ WebSocket client ----> /ws ----> LiveUpdates
 | `GET` | `/api/users?query={prefix}` | Authenticated; searches usernames by prefix |
 | `GET` | `/api/conversations` | Authenticated; returns conversation previews |
 | `GET` | `/api/message/{peer}?before={id}` | Authenticated; returns a history page with IDs below `before` |
+| `POST` | `/api/message` | Authenticated; validates and stores a message, then publishes after commit |
 
 `POST /api/message` accepts a validated `OutGoing` DTO and derives the sender from the authenticated principal. The service checks that the recipient exists, rejects self-messaging and blank bodies, saves the message, and publishes the WebSocket event after the transaction commits.
 
@@ -119,7 +120,7 @@ The `GET /api/csrf` endpoint returns the current CSRF token and its header name.
 
 `GET /api/conversations` fetches candidate latest messages, works out the other participant, loads participant accounts, and assembles `Conversation` DTOs. It is intended to return one preview per peer rather than every message in every chat.
 
-**Known query limitation:** The repository groups by `sender, recipient` directionally. A message from A to B and a message from B to A can therefore be treated as separate groups. The service deduplicates peers after the query, but correctness depends on the query's ordering and can select the wrong preview in edge cases. This needs a query strategy that normalizes each participant pair.
+The repository query groups messages by the other participant using a normalized `CASE` expression, so messages in both directions are considered when selecting each peer's latest message. Add integration tests for this query with alternating sender/recipient directions.
 
 ### 5. Message history
 
@@ -129,7 +130,7 @@ The `GET /api/csrf` endpoint returns the current CSRF token and its header name.
 
 The WebSocket endpoint is registered at `/ws`. `LiveUpdates` rejects a WebSocket session without a principal, stores active sessions in a concurrent map, converts each message to JSON, and attempts to deliver it to active sessions whose principal matches the sender or recipient.
 
-The handshake interceptor tries to attach HTTP-session data for later session validation. The implementation should be reviewed before production use: the current interceptor checks for a servlet request but tests `servlet == null` only after dereferencing it, does not check whether `getSession(false)` returned null, and stores the servlet request wrapper rather than the `HttpSession`. In addition, `frontendOrigins` is injected directly as a constructor argument, but no bean is defined for `String[]` in the checked-in configuration, so this dependency may prevent startup. Configure origins explicitly and correct the interceptor before relying on it.
+The handshake interceptor verifies the request principal, requires an existing HTTP session, and stores the actual `HttpSession` in the WebSocket attributes. Allowed frontend origins are injected from `app.frontend-origins` (defaulting to `http://localhost:5173`). Session expiry and reconnect behavior should still be tested in a real browser before production use.
 
 ## Database model
 
