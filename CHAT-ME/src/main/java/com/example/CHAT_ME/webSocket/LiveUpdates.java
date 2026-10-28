@@ -2,7 +2,7 @@ package com.example.CHAT_ME.webSocket;
 
 import com.example.CHAT_ME.Entity.ChatMessage;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-@Service
+@Component
 public class LiveUpdates extends TextWebSocketHandler {
 
     private final ConcurrentMap<String, WebSocketSession> sessions = new ConcurrentHashMap<>();

@@ -65,4 +65,7 @@ public class ChatController {
         return chatService.history(principal.getName(),peer,before);
     }
 
+
+
+
 }

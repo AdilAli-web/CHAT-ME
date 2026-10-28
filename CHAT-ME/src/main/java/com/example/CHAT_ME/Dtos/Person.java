@@ -16,5 +16,7 @@ public class Person {
 
 
     public Person(String userName, String displayName) {
+        this.userName = userName;
+        this.displayName = displayName;
     }
 }
