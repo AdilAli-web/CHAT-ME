@@ -175,20 +175,37 @@ function App() {
     setChecking(true);
     try {
       const user = await request("/api/me");
-      setMe(user); setAuthenticated(true); setIsDemo(false); setApiError("");
+      setMe(user);
+      setAuthenticated(true);
+      setIsDemo(false);
+      setApiError("");
       const conversationData = await request("/api/conversations");
       const mapped = (conversationData || []).map((item) => {
         const person = item.person || {};
         const last = item.lastMessage || item.LastMessage || {};
-        return { userName: person.userName, displayName: person.displayName || person.userName, color: "mint", online: false, time: timeLabel(last.sentAt || last.createdAt), unread: 0, preview: last.body || "Start a conversation", messages: [], lastMessageId: last.id };
+        return {
+          userName: person.userName,
+          displayName: person.displayName || person.userName,
+          color: "mint",
+          online: false,
+          time: timeLabel(last.sentAt || last.createdAt),
+          unread: 0,
+          preview: last.body || "Start a conversation",
+          messages: [],
+          lastMessageId: last.id
+        };
       });
       setChats(mapped);
-      if (mapped.length) setActiveId((current) => mapped.some((c) => c.userName === current) ? current : mapped[0].userName);
+      setActiveId((current) => mapped.some((chat) => chat.userName === current) ? current : (mapped[0]?.userName || ""));
     } catch {
-      setAuthenticated(false); setIsDemo(true);
-    } finally { setChecking(false); }
+      // If there is no valid session, show the UI preview and keep API-backed
+      // operations disabled until the user successfully signs in.
+      setAuthenticated(false);
+      setIsDemo(true);
+    } finally {
+      setChecking(false);
+    }
   }
-
   useEffect(() => { loadApp(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [activeId, chats]);
   useEffect(() => {
