@@ -1,8 +1,11 @@
+
 package com.example.CHAT_ME.config;
 
 import com.example.CHAT_ME.webSocket.LiveUpdates;
-import org.jspecify.annotations.Nullable;
+import jakarta.servlet.http.HttpSession;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpRequest;
@@ -21,37 +24,68 @@ public class WebSocketConfig implements WebSocketConfigurer {
     private final LiveUpdates updates;
     private final String[] frontendOrigins;
 
-
-
-    public WebSocketConfig(LiveUpdates updates, String[] frontendOrigins) {
+    public WebSocketConfig(
+            LiveUpdates updates,
+            @Value("${app.frontend-origins:http://localhost:3000}")
+            String[] frontendOrigins) {
         this.updates = updates;
         this.frontendOrigins = frontendOrigins;
     }
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-registry.addHandler(updates,"/ws").setAllowedOrigins(frontendOrigins)
-        .addInterceptors(new HandshakeInterceptor() {
-            @Override
-            public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
-             if(!(request instanceof ServletServerHttpRequest servlet)) return false;
-             var session=servlet.getServletRequest().getSession(false);
-             if(servlet==null) return false;
-             attributes.put("httpSession",servlet);
-             return true;
-            }
+        registry.addHandler(updates, "/ws")
+                .setAllowedOrigins(frontendOrigins)
+                .addInterceptors(new HandshakeInterceptor() {
 
-            @Override
-            public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, @Nullable Exception exception) {
-                if (exception != null) {
-                    System.err.println(
-                            "WebSocket handshake failed: "
-                                    + exception.getMessage());
-                }
-            }
-        });
+                    @Override
+                    public boolean beforeHandshake(
+                            ServerHttpRequest request,
+                            ServerHttpResponse response,
+                            WebSocketHandler handler,
+                            Map<String, Object> attributes) {
 
+                        if (!(request instanceof ServletServerHttpRequest servlet)) {
+                            return false;
+                        }
 
+                        // Require an authenticated HTTP request.
+                        if (request.getPrincipal() == null) {
+                            response.setStatusCode(
+                                    HttpStatus.UNAUTHORIZED
+                            );
+                            return false;
+                        }
+
+                        HttpSession session =
+                                servlet.getServletRequest().getSession(false);
+
+                        if (session == null) {
+                            response.setStatusCode(
+                                    HttpStatus.UNAUTHORIZED
+                            );
+                            return false;
+                        }
+
+                        // Store the actual HTTP session.
+                        attributes.put("httpSession", session);
+                        return true;
+                    }
+
+                    @Override
+                    public void afterHandshake(
+                            ServerHttpRequest request,
+                            ServerHttpResponse response,
+                            WebSocketHandler handler,
+                            Exception exception) {
+
+                        if (exception != null) {
+                            System.err.println(
+                                    "WebSocket handshake failed: "
+                                            + exception.getMessage()
+                            );
+                        }
+                    }
+                });
     }
-
 }

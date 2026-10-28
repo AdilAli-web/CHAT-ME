@@ -1,6 +1,7 @@
 package com.example.CHAT_ME.Controller;
 
 import com.example.CHAT_ME.Dtos.Conversation;
+import com.example.CHAT_ME.Dtos.OutGoing;
 import com.example.CHAT_ME.Dtos.Person;
 import com.example.CHAT_ME.Dtos.Registration;
 import com.example.CHAT_ME.Entity.ChatMessage;
@@ -65,7 +66,20 @@ public class ChatController {
         return chatService.history(principal.getName(),peer,before);
     }
 
+    @PostMapping("/message")
+    public ResponseEntity<ChatMessage> sendMessage(
+            @Valid @RequestBody OutGoing outGoing,
+            Principal principal) {
 
+        ChatMessage message = chatService.send(
+                outGoing,
+                principal.getName()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(message);
+    }
 
 
 }

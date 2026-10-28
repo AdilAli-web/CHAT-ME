@@ -39,14 +39,19 @@ public interface ChatMessageRepo extends JpaRepository<ChatMessage,Long> {
 
     @Query("""
     SELECT m FROM ChatMessage m
-    WHERE m.id IN (
-        SELECT MAX(c.id)
-        FROM ChatMessage c
-        WHERE c.sender = :me OR c.recipient = :me
-        GROUP BY c.sender, c.recipient
-    )
+    WHERE (m.sender = :me OR m.recipient = :me)
+      AND m.id IN (
+          SELECT MAX(c.id)
+          FROM ChatMessage c
+          WHERE (c.sender = :me OR c.recipient = :me)
+          GROUP BY CASE
+              WHEN c.sender = :me THEN c.recipient
+              ELSE c.sender
+          END
+      )
     ORDER BY m.id DESC
     """)
     List<ChatMessage> conversations(@Param("me") String me);
+
 
 }
