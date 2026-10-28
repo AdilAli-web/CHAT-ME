@@ -54,7 +54,7 @@ async function request(path, options = {}) {
   let data = null;
   try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
   if (!response.ok) {
-    const msg = typeof data === "string" ? data : data?.message || data?.detail || `Request failed (${response.status})`;
+    const msg = typeof data === "string" ? data : data?.message || data?.detail || data?.error || `Request failed (${response.status})`;
     throw new Error(msg);
   }
   return data;
