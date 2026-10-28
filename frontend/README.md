@@ -34,6 +34,7 @@ Restart Vite after changing `.env`.
 - Search for existing chats and username-prefix people search
 - Message history loading via `GET /api/message/{peer}?before=...`
 - Sends via `POST /api/message`
+- Receives live message events through the authenticated `/ws` WebSocket while signed in
 - Profile details panel, unread filters, and mobile layout
 
 If the backend is unavailable or there is no authenticated session, the app displays the login/register screen. Choose **Explore the interface with sample chats** to open **preview mode**. Preview-mode messages are stored only in React state and are not sent to the backend.
@@ -52,7 +53,7 @@ If the backend is unavailable or there is no authenticated session, the app disp
 ## Notes
 
 - Requests include browser credentials (`credentials: "include"`) to carry the session cookie.
-- The backend must allow the frontend origin `http://localhost:5173` through its CORS configuration if frontend and backend run on different origins. The backend must also allow credentialed requests and configure CSRF/cookie rules consistently.
+- The backend must allow the frontend origin `http://localhost:5173` through its CORS configuration if frontend and backend run on different origins. The backend enables CORS in the Spring Security filter chain, allows only `http://localhost:5173`, and allows credentialed requests. Keep CSRF enabled and configure cookies consistently for your local environment.
 - The backend's current Spring Security configuration does not show an explicit CORS setup. If API requests fail in the browser with a CORS error, add a carefully scoped CORS configuration for `http://localhost:5173` with credentials enabled. Do not use wildcard origins with credentials.
-- Current repository code registers a WebSocket endpoint at `/ws`, but this UI does not yet open a WebSocket connection. Live incoming-message updates will need a client protocol and a final review of the backend handshake/security behavior.
+- The frontend opens `/ws` while signed in and updates the chat list/messages from received events. Browser-level testing is still needed; automatic reconnect/backoff is not implemented yet.
 - File/image sharing, voice calls, and video calls are visual placeholders only; they are not implemented by the backend yet.
