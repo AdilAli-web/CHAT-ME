@@ -156,6 +156,7 @@ function App() {
   const [me, setMe] = useState(null);
   const [chats, setChats] = useState(demoChats);
   const [activeId, setActiveId] = useState("rahul_sharma");
+  const activeIdRef = useRef(activeId);
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
   const [searchMode, setSearchMode] = useState("chats");
@@ -216,6 +217,7 @@ function App() {
     }
   }
 
+  useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
   useEffect(() => { loadApp(); }, []);
 
   // Use the authenticated session cookie for the WebSocket handshake.
@@ -234,6 +236,7 @@ function App() {
           ? incoming.recipient
           : incoming.sender;
         const own = incoming.sender === me.userName;
+        const isOpenPeer = isOpenPeerRef.current;
         const normalized = {
           ...incoming,
           own,
@@ -253,10 +256,10 @@ function App() {
                 ...current,
                 preview: incoming.body || current.preview,
                 time: normalized.sentAt || "now",
-                unread: peer !== activeId && !own
+                unread: !isOpenPeer && !own
                   ? (current.unread || 0) + 1
                   : current.unread || 0,
-                messages: peer === activeId
+                messages: isOpenPeer
                   ? [...(current.messages || []), normalized]
                   : (current.messages || []),
               }
@@ -266,14 +269,15 @@ function App() {
                 color: "mint",
                 online: false,
                 time: normalized.sentAt || "now",
-                unread: peer !== activeId && !own ? 1 : 0,
+                unread: !isOpenPeer && !own ? 1 : 0,
                 preview: incoming.body || "",
-                messages: peer === activeId ? [normalized] : [],
+                messages: isOpenPeer ? [normalized] : [],
               };
 
-          return exists
-            ? updated ? items.map((chat) => chat.userName === peer ? updated : chat) : items
-            : [updated, ...items];
+          if (exists) {
+            return items.map((chat) => chat.userName === peer ? updated : chat);
+          }
+          return [updated, ...items];
         });
       } catch {
         // Ignore malformed WebSocket payloads rather than breaking the chat UI.
@@ -285,7 +289,7 @@ function App() {
     };
 
     return () => socket.close();
-  }, [authenticated, isDemo, me?.userName, activeId]);
+  }, [authenticated, isDemo, me?.userName]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [activeId, chats]);
   useEffect(() => {
