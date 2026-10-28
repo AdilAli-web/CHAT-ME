@@ -1,57 +1,99 @@
 # CHAT-ME 💬
 
-CHAT-ME is a one-to-one chat backend built with Java 21, Spring Boot, Spring Data JPA, MySQL, Spring Security, and WebSocket APIs.
+CHAT-ME is a one-to-one chat backend built with Java 21, Spring Boot, Spring Data JPA, Hibernate, MySQL, Spring Security, and WebSocket.
 
-> **Status: In development.** The repository contains foundations for registration, user search, conversation previews, paginated message history, and WebSocket delivery. Some flows still need configuration, fixes, and end-to-end tests.
+> **Project status: In development.** The repository has account registration, user search, conversation previews, paginated message history, session-based login configuration, CSRF token retrieval, and a WebSocket handler foundation. The end-to-end send-message API and several security/reliability details still need work.
 
-## Why this project?
+## Features in the codebase
 
-A chat backend must do more than send text. It must identify users, validate requests, store messages so they survive disconnects, load only the data needed by the client, and deliver new messages to connected users. CHAT-ME uses separate layers so each responsibility has a clear home.
+- **Account registration** with Jakarta Bean Validation and BCrypt password hashing.
+- **Session-based login configuration** using Spring Security form login at `POST /api/login`.
+- **CSRF token endpoint** at `GET /api/csrf` for browser clients using session cookies.
+- **Current profile** based on the authenticated request principal.
+- **Username-prefix search** limited to 20 results and excluding the current user.
+- **Conversation previews** assembled from recent messages and the other participant's account.
+- **Bidirectional message history** between two users, fetched in pages of up to 50 messages.
+- **WebSocket handler** at `/ws`, with a connection registry and JSON message publication to active sessions belonging to either participant.
+- **Centralized API error handling** for validation failures, duplicate accounts, and request errors.
 
-## Technology
+## Tech stack
 
-- Java 21 and Spring Boot
+- Java 21
+- Spring Boot 4.1.2
 - Spring Web / REST
 - Spring Data JPA and Hibernate
-- MySQL
-- Spring Security and BCrypt password encoding
+- MySQL Connector/J
+- Spring Security
 - Spring WebSocket
 - Jakarta Validation
-- Maven and Lombok
+- Lombok
+- Maven
+- JUnit / Spring Boot test dependencies
 
 ## Architecture
 
 ```text
-Frontend / HTTP client
+HTTP client / frontend
         |
         v
-ChatController  -> receives HTTP requests and returns responses
-        |
-        v
-ChatService     -> applies application rules and coordinates work
-        |
-        +------> AccountRepo ------> Account table
-        |
-        +------> ChatMessageRepo --> Chat messages table
+ChatController  ----> ChatService
+                          |
+             +------------+-------------+
+             |                          |
+             v                          v
+        AccountRepo                ChatMessageRepo
+             |                          |
+             v                          v
+        Account table              Chat messages table
 
-Connected clients <---- LiveUpdates (WebSocket handler)
+Browser session + Spring Security
+        |
+        +---- CSRF token endpoint: GET /api/csrf
+        +---- Form login endpoint: POST /api/login
+
+WebSocket client ----> /ws ----> LiveUpdates
+                                  |
+                                  +--> connected sender/recipient sessions
 ```
 
-- **Controller:** handles HTTP requests and obtains the authenticated user's `Principal`.
-- **Service:** implements registration, search, conversation list, history, and send-message logic.
-- **Repository:** reads/writes database records using Spring Data JPA.
-- **Entity:** maps Java objects to database tables.
-- **DTO:** defines request/response data.
-- **Exception handling:** turns validation and application errors into HTTP responses.
-- **LiveUpdates:** keeps a concurrent collection of WebSocket sessions and publishes new messages to the sender and recipient.
+### Layer responsibilities
 
-## How the main functionality works
+- **Controller:** Exposes HTTP endpoints and uses the authenticated `Principal` for user-specific operations.
+- **Service:** Coordinates registration, search, conversation listing, history retrieval, and a message-send method.
+- **Repositories:** Use Spring Data JPA to query accounts and messages.
+- **Entities:** `Account` stores account data; `ChatMessage` stores message bodies and timestamps.
+- **DTOs:** `Registration`, `Person`, `Conversation`, and `OutGoing` shape request and response data.
+- **SecurityConfig:** Configures a security filter chain, form login, account lookup through `UserDetailsService`, and BCrypt password encoding.
+- **WebSocketConfig:** Registers `LiveUpdates` at `/ws` and attaches a handshake interceptor.
+- **LiveUpdates:** Tracks WebSocket sessions, serializes messages, and sends published messages to connected participants.
+- **ApiErrors:** Maps selected application and validation exceptions to HTTP responses.
 
-### Register — `POST /api/register`
+## HTTP API currently exposed
 
-The controller validates the `Registration` DTO with `@Valid`. The service trims input, checks for an existing username, encodes the password with BCrypt, saves an `Account`, and returns a `Person` DTO. This keeps passwords hashed rather than stored as plain text and keeps business logic out of the controller.
+| Method | Endpoint | Authentication / purpose |
+|---|---|---|
+| `GET` | `/api/csrf` | Public; returns a CSRF token and header name for browser clients |
+| `POST` | `/api/register` | Public; validates and creates an account |
+| `POST` | `/api/login` | Form login endpoint handled by Spring Security; expects the default `username` and `password` form parameters |
+| `GET` | `/api/me` | Authenticated; returns the current user's profile |
+| `GET` | `/api/users?query={prefix}` | Authenticated; searches usernames by prefix |
+| `GET` | `/api/conversations` | Authenticated; returns conversation previews |
+| `GET` | `/api/message/{peer}?before={id}` | Authenticated; returns a history page with IDs below `before` |
 
-Example request:
+**Not yet exposed:** `ChatService` contains a `send(OutGoing, currentUserName)` method, but `ChatController` does not currently define an HTTP endpoint for sending messages. WebSocket delivery is invoked by that service method, so sending is not yet wired end-to-end through the HTTP API.
+
+## Main request flows
+
+### 1. Registration
+
+1. The client submits `POST /api/register` with `userName`, `displayName`, `password`, and `phoneNo`.
+2. Jakarta Validation checks required fields and constraints.
+3. `ChatService` trims the text fields and checks whether the username already exists.
+4. The password is encoded with BCrypt before the account is saved.
+5. The API returns a `Person` response rather than the password hash.
+
+Example body:
+
 ```json
 {
   "userName": "adil",
@@ -61,50 +103,45 @@ Example request:
 }
 ```
 
-### Current profile — `GET /api/me`
+The phone number validation currently expects a 10-digit Indian mobile number beginning with 6–9, and the database model requires phone numbers to be unique.
 
-The controller takes the username from Spring Security's authenticated `Principal`. The service loads the account and maps it to a profile DTO. The backend should use the principal rather than trust a username supplied by the client.
+### 2. Login and CSRF
 
-### Search users — `GET /api/users?query=rah`
+Spring Security is configured for form login at `POST /api/login`. Successful login returns HTTP 204; failed login returns HTTP 401. The default form-login parameter names are `username` and `password`, and the current code does not add a JSON login converter.
 
-The service rejects blank or malformed prefixes and calls the repository for up to 20 usernames beginning with that prefix, excluding the current user. Prefix search, database indexing, a result limit, and frontend debouncing help avoid loading every account into memory.
+The `GET /api/csrf` endpoint returns the current CSRF token and its header name. A browser frontend should request the token and include it in requests protected by CSRF, including the login POST. Session cookies should be handled consistently by the frontend.
 
-### Conversation list — `GET /api/conversations`
+### 3. Search
 
-The service gets candidate latest messages, determines the other participant, batch-loads the participant accounts, and builds `Conversation` DTOs. This populates the chat list with each peer and a latest-message preview; it does not load all messages from all chats.
+`GET /api/users?query=rah` returns up to 20 accounts whose usernames start with the provided prefix, excluding the signed-in user. Blank or malformed queries return an empty result. A frontend should debounce input to avoid issuing a request on every keystroke.
 
-### Message history — `GET /api/message/{peer}?before={messageId}`
+### 4. Conversation previews
 
-The repository selects messages exchanged in both directions between the current user and the selected peer, with IDs lower than `before`, ordered newest-first. The service requests up to 50 rows and reverses the page so messages are returned oldest-first for display. The first request needs an initial cursor such as `Long.MAX_VALUE`; later requests should pass the oldest message ID from the previous page.
+`GET /api/conversations` fetches candidate latest messages, works out the other participant, loads participant accounts, and assembles `Conversation` DTOs. It is intended to return one preview per peer rather than every message in every chat.
 
-### Sending and live delivery
+**Known query limitation:** The repository groups by `sender, recipient` directionally. A message from A to B and a message from B to A can therefore be treated as separate groups. The service deduplicates peers after the query, but correctness depends on the query's ordering and can select the wrong preview in edge cases. This needs a query strategy that normalizes each participant pair.
 
-The service has a `send(OutGoing, currentUserName)` method that saves a message and calls `LiveUpdates.publish()`. The WebSocket handler serializes the message as JSON and sends it to active sessions authenticated as either participant. Database storage preserves history; WebSocket delivery gives connected users an immediate update.
+### 5. Message history
 
-**Not yet wired end-to-end:** the checked-in controller does not expose a send-message endpoint, and there is no WebSocket configuration class registering the handler at a URL. The current service publishes before its transaction commits; production-safe delivery should happen after a successful commit.
+`GET /api/message/{peer}?before={id}` returns up to 50 messages exchanged in either direction between the authenticated user and the selected peer. The repository orders by ID descending, and the service reverses the result so it is returned in ascending order for display. The first request can use a large initial cursor such as `Long.MAX_VALUE`; subsequent pages should pass the oldest message ID from the previous page.
 
-## API endpoints currently present
+### 6. WebSocket delivery
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| GET | `/api/csrf` | Returns the CSRF token and header name |
-| POST | `/api/register` | Validates and registers an account |
-| GET | `/api/me` | Gets the authenticated user's profile |
-| GET | `/api/users?query={prefix}` | Searches up to 20 users |
-| GET | `/api/conversations` | Gets conversation previews |
-| GET | `/api/message/{peer}?before={id}` | Gets a page of chat history |
+The WebSocket endpoint is registered at `/ws`. `LiveUpdates` rejects a WebSocket session without a principal, stores active sessions in a concurrent map, converts each message to JSON, and attempts to deliver it to active sessions whose principal matches the sender or recipient.
 
-The current `SecurityConfig` provides a BCrypt encoder but does not define an explicit `SecurityFilterChain` or a complete authentication flow.
+The handshake interceptor tries to attach HTTP-session data for later session validation. The implementation should be reviewed before production use: the current interceptor checks for a servlet request but tests `servlet == null` only after dereferencing it, does not check whether `getSession(false)` returned null, and stores the servlet request wrapper rather than the `HttpSession`. In addition, `frontendOrigins` is injected directly as a constructor argument, but no bean is defined for `String[]` in the checked-in configuration, so this dependency may prevent startup. Configure origins explicitly and correct the interceptor before relying on it.
 
-## Data model
+## Database model
 
-- **Account:** username (primary key), display name, phone number, password hash, and a version field. The phone number is currently required and unique, so sharing a phone number between accounts is not allowed.
-- **ChatMessage:** generated ID, sender, recipient, body, sent time, and creation time. Database indexes are declared to support message queries.
-- **Registration:** incoming fields with validation constraints.
-- **OutGoing:** recipient and body for a message request.
-- **Person:** profile data returned to clients.
-- **Conversation:** the latest message plus the other participant.
-- **ExceptionResponse:** timestamp, HTTP status, message, and request path for errors.
+- **Account / `accounts`:** username primary key, display name, unique phone number, BCrypt password hash, and an optimistic-lock version field.
+- **ChatMessage / `chat_messages`:** generated ID, sender, recipient, body, sent timestamp, and creation timestamp. Indexes are defined for sender/recipient/ID and recipient/ID query patterns.
+- **Message history:** uses an ID cursor and a page size of 50 rather than returning an entire conversation at once.
+
+## Configuration
+
+The checked-in `application.properties` expects the MySQL database to be available locally at `127.0.0.1:3306`, creates the `chat` database if the MySQL account has the necessary permissions, and reads the database password from the `DB_PASSWORD` environment variable. It also configures Hibernate schema update, UTC JDBC time handling, strict Jackson deserialization options, an eight-hour session inactivity timeout, HTTP-only / SameSite Strict cookies, and generic default error responses.
+
+Do not commit real database credentials. For local IntelliJ runs, set `DB_PASSWORD` in the Run Configuration environment variables. The current database username is configured as `root` in the properties file.
 
 ## Run locally
 
@@ -115,31 +152,38 @@ git clone https://github.com/AdilAli-web/CHAT-ME.git
 cd CHAT-ME/CHAT-ME
 ```
 
-Configure the database connection and JPA settings for your environment. The checked-in `application.properties` currently only sets the application name. Do not commit database credentials.
+Set `DB_PASSWORD` in your environment, ensure your MySQL server is running, and then run:
 
-Windows:
+**Windows PowerShell**
+
 ```powershell
+$env:DB_PASSWORD="your_mysql_password"
 .\mvnw.cmd spring-boot:run
 .\mvnw.cmd test
 ```
 
-macOS/Linux:
+**macOS / Linux**
+
 ```bash
+export DB_PASSWORD="your_mysql_password"
 ./mvnw spring-boot:run
 ./mvnw test
 ```
 
-## Known gaps and next steps
+The repository currently contains a basic Spring Boot context-load test. A green test run does not yet demonstrate all login, CSRF, WebSocket, query-pagination, and message-delivery scenarios.
 
-- Fix the two-argument `Person` constructor: it currently does not assign its fields, but search uses it, so search results can contain empty profile data.
-- Fix conversation grouping so messages in both directions produce one latest message per peer. The repository currently groups sender/recipient directionally, and service deduplication may keep an older message.
-- Validate blank/oversized message bodies and verify recipients exist before saving.
-- Ensure the authenticated username is used for send and history operations.
-- Publish WebSocket messages after database commit.
-- Register the WebSocket handler and define the intended security/authentication configuration.
-- Do not expose phone numbers or password hashes in public responses; use narrow DTOs/projections.
-- Handle database constraint errors accurately: a conflict may be caused by a duplicate phone number, not just a username.
-- Add integration tests for registration, search, history pagination, authorization, and live delivery.
+## Important follow-up work
+
+- Correct WebSocket origin injection and handshake session handling; verify the principal is authenticated.
+- Confirm the authenticated user identity is consistently used for all message operations.
+- Add an HTTP send-message endpoint (or explicitly design a WebSocket inbound-message protocol) and test the full path.
+- Validate that recipients exist and that message bodies are nonblank and within the intended size limit.
+- Publish WebSocket messages only after the database transaction commits.
+- Fix latest-message query grouping so each peer appears exactly once with the true latest message across both directions.
+- Review response DTOs to ensure phone numbers and persistence entities are not exposed unnecessarily.
+- Improve duplicate-key error handling: a uniqueness conflict may be caused by the phone number, not only the username.
+- Correct the `UserNotFound` exception message, which currently says the username already exists.
+- Add integration tests for registration, login, CSRF, authorization, search, pagination, WebSocket handshakes, and live delivery.
 
 ## Author
 
