@@ -13,7 +13,7 @@ import lombok.Setter;
 public class Conversation {
 //this class is used for conversation
 //    chatmessage will save the message
-    private ChatMessage LastMessage;
+    private ChatMessage lastMessage;
 //    who is sending the message
     private Person person;
 
