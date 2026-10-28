@@ -15,6 +15,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
@@ -178,18 +180,52 @@ return people;
 
 
     @Transactional
-    public ChatMessage send(OutGoing outGoing,String CurrentUserName){
-        String recipient=outGoing.getRecipient();
-        String body=outGoing.getBody();
+    public ChatMessage send(OutGoing outGoing, String currentUserName) {
+        String recipient = outGoing.getRecipient() == null
+                ? ""
+                : outGoing.getRecipient().trim();
+        String body = outGoing.getBody() == null
+                ? ""
+                : outGoing.getBody().trim();
 
-        if(recipient==null || recipient.isBlank()){
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"choose a recipient");
+        if (recipient.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Choose a recipient"
+            );
         }
 
+        if (body.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Message body cannot be empty"
+            );
+        }
 
-ChatMessage message=chatRepo.saveAndFlush(new ChatMessage(CurrentUserName,recipient,body.trim()));
+        if (!accountRepo.existsById(recipient)) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "Recipient not found"
+            );
+        }
 
-        updates.publish(message);
+        if (recipient.equals(currentUserName)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "You cannot message yourself"
+            );
+        }
+
+        ChatMessage message = chatRepo.saveAndFlush(
+                new ChatMessage(currentUserName, recipient, body)
+        );
+
+        // Notify connected clients only after the database transaction commits.
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        updates.publish(message);
+                    }
+                }
+        );
+
         return message;
     }
 
