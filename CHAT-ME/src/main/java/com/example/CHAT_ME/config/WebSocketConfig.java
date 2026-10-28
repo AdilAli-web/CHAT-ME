@@ -26,7 +26,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     public WebSocketConfig(
             LiveUpdates updates,
-            @Value("${app.frontend-origins:http://localhost:5173}}")
+            @Value("${app.frontend-origins:http://localhost:5173}")
             String[] frontendOrigins) {
         this.updates = updates;
         this.frontendOrigins = frontendOrigins;
