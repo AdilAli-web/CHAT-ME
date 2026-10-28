@@ -36,7 +36,7 @@ Restart Vite after changing `.env`.
 - Sends via `POST /api/message`
 - Profile details panel, unread filters, and mobile layout
 
-If the backend is unavailable or the current session is not authenticated, the app opens a **preview mode** with sample conversations so the interface can be explored. Preview-mode messages are stored only in React state and are not sent to the backend.
+If the backend is unavailable or there is no authenticated session, the app displays the login/register screen. Choose **Explore the interface with sample chats** to open **preview mode**. Preview-mode messages are stored only in React state and are not sent to the backend.
 
 ## Backend endpoints used
 
