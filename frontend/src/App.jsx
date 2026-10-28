@@ -71,7 +71,7 @@ function Brand({ compact = false }) {
   </div>;
 }
 
-function AuthScreen({ onAuthenticated }) {
+function AuthScreen({ onAuthenticated, onPreview }) {
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ userName: "", displayName: "", password: "", phoneNo: "" });
   const [busy, setBusy] = useState(false);
@@ -141,6 +141,7 @@ function AuthScreen({ onAuthenticated }) {
         <div className="field-wrap"><LockKeyhole size={17} /><input className="text-field text-field--icon" type="password" value={form.password} onChange={update("password")} placeholder="Enter your password" minLength={8} maxLength={72} autoComplete={mode === "login" ? "current-password" : "new-password"} required /></div>
         <button className="primary-button auth-submit" disabled={busy}>{busy ? <span className="spinner" /> : <>{mode === "login" ? "Sign in to CHAT-ME" : "Create account"} <span>→</span></>}</button>
         <div className="auth-toggle">{mode === "login" ? "New around here?" : "Already have an account?"} <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); setNotice(""); }}>{mode === "login" ? "Create an account" : "Sign in"}</button></div>
+        {mode === "login" && <button type="button" className="preview-link" onClick={onPreview}>Explore the interface with sample chats ↗</button>}
         <div className="auth-foot"><LockKeyhole size={13} /> Your password is handled securely by the backend.</div>
       </form>
     </section>
@@ -150,6 +151,7 @@ function AuthScreen({ onAuthenticated }) {
 
 function App() {
   const [authenticated, setAuthenticated] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   const [checking, setChecking] = useState(true);
   const [me, setMe] = useState(null);
   const [chats, setChats] = useState(demoChats);
@@ -263,11 +265,11 @@ function App() {
       const token = csrf?.Token || csrf?.token;
       await request("/logout", { method: "POST", headers: token ? { [csrf.headerName || "X-CSRF-TOKEN"]: token } : {} });
     } catch {}
-    setAuthenticated(false); setMe(null); setIsDemo(true); setActiveId("rahul_sharma"); setShowInfo(false);
+    setAuthenticated(false); setPreviewMode(false); setMe(null); setIsDemo(true); setActiveId("rahul_sharma"); setShowInfo(false);
   }
 
   if (checking) return <main className="boot-screen"><Brand /><div className="boot-spinner" /><p>Getting your space ready…</p></main>;
-  if (!authenticated) return <AuthScreen onAuthenticated={loadApp} />;
+  if (!authenticated && !previewMode) return <AuthScreen onAuthenticated={loadApp} onPreview={() => { setPreviewMode(true); setIsDemo(true); setChats(demoChats); setActiveId("rahul_sharma"); }} />;
 
   return <main className="app-shell">
     <aside className={`rail ${mobileListOpen ? "" : "rail--mobile-hidden"}`}>
