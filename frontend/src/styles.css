@@ -177,7 +177,7 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .app-corner { position: absolute; right: 20px; bottom: 5px; z-index: 3; display: flex; align-items: center; gap: 7px; color: #b0bbb2; font-size: 8px; letter-spacing: .6px; pointer-events: none; }
 .connection-indicator { width: 5px; height: 5px; border-radius: 50%; background: #42ba84; }
 .connection-indicator--demo { background: #e5b05a; }
-.logout-fab { position: absolute; z-index: 5; left: 20px; bottom: 64px; width: 40px; height: 38px; display: none; place-items: center; border: 0; border-radius: 12px; color: #a0b9ad; background: transparent; }
+.logout-fab { position: absolute; z-index: 5; left: 16px; bottom: 15px; width: 40px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 12px; color: #a0b9ad; background: transparent; }
 .logout-fab:hover { background: #ffffff17; color: white; }
 .toast { position: absolute; z-index: 20; left: 50%; bottom: 48px; display: flex; align-items: center; gap: 9px; max-width: min(440px, calc(100vw - 28px)); padding: 12px 15px; border: 1px solid #d8e9da; border-radius: 12px; color: #40624f; background: #fff; box-shadow: 0 15px 40px #203f2a20; font-size: 11px; transform: translateX(-50%); animation: rise-in .2s ease-out; }
 .toast > svg { flex: 0 0 auto; color: #3ba978; }
