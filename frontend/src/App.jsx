@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Archive, ArrowLeft, Bell, Check, CheckCheck, ChevronDown, CircleHelp,
-  EllipsisVertical, FileText, Image as ImageIcon, LockKeyhole,
-  LogOut, MessageCircle, MoreVertical, Paperclip, Phone, Plus, Search,
-  Send, Smile, Sparkles, UserRound, Users, Video, X, ShieldCheck
+  EllipsisVertical, FileText, Image as ImageIcon, LockKeyhole, LogOut,
+  MessageCircle, MoreVertical, Paperclip, Phone, Plus, Search, Send, Smile,
+  Sparkles, UserRound, Users, Video, X, ShieldCheck, Check, CheckCheck,
+  ChevronDown, CircleHelp, Archive, Bell
 } from "lucide-react";
 import "./styles.css";
 
@@ -45,30 +45,25 @@ function timeLabel(value) {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
-
 async function request(path, options = {}) {
   const response = await fetch(`${API_URL}${path}`, {
-    credentials: "include",
-    ...options,
-    headers: { ...(options.headers || {}) },
+    credentials: "include", ...options, headers: { ...(options.headers || {}) },
   });
   if (response.status === 204) return null;
   const raw = await response.text();
   let data = null;
   try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
   if (!response.ok) {
-    const message = typeof data === "string" ? data : data?.message || data?.detail || `Request failed (${response.status})`;
-    throw new Error(message);
+    const msg = typeof data === "string" ? data : data?.message || data?.detail || `Request failed (${response.status})`;
+    throw new Error(msg);
   }
   return data;
 }
-
 function Avatar({ name, color = "mint", online = false, large = false }) {
   return <span className={`avatar avatar--${color} ${large ? "avatar--large" : ""}`}>
     {initials(name)}{online && <i className="avatar__online" />}
   </span>;
 }
-
 function Brand({ compact = false }) {
   return <div className={`brand ${compact ? "brand--compact" : ""}`}>
     <span className="brand__icon"><MessageCircle size={20} strokeWidth={2.5} /></span>
@@ -83,6 +78,7 @@ function AuthScreen({ onAuthenticated }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const update = (key) => (e) => setForm((old) => ({ ...old, [key]: e.target.value }));
+
   async function submit(e) {
     e.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
@@ -105,11 +101,13 @@ function AuthScreen({ onAuthenticated }) {
           headers: { "Content-Type": "application/x-www-form-urlencoded", ...(token ? { [csrfHeader]: token } : {}) },
           body,
         });
-        onAuthenticated();
+        await onAuthenticated();
       }
-    } catch (err) { setError(err.message || "Could not connect to CHAT-ME."); }
-    finally { setBusy(false); }
+    } catch (err) {
+      setError(err.message || "Could not connect to CHAT-ME.");
+    } finally { setBusy(false); }
   }
+
   return <main className="auth-shell">
     <div className="auth-orb auth-orb--one" /><div className="auth-orb auth-orb--two" />
     <nav className="auth-nav"><Brand /><span className="auth-nav__secure"><ShieldCheck size={15} /> PRIVATE BY DESIGN</span></nav>
@@ -142,7 +140,7 @@ function AuthScreen({ onAuthenticated }) {
         <label className="field-label">Password</label>
         <div className="field-wrap"><LockKeyhole size={17} /><input className="text-field text-field--icon" type="password" value={form.password} onChange={update("password")} placeholder="Enter your password" minLength={8} maxLength={72} autoComplete={mode === "login" ? "current-password" : "new-password"} required /></div>
         <button className="primary-button auth-submit" disabled={busy}>{busy ? <span className="spinner" /> : <>{mode === "login" ? "Sign in to CHAT-ME" : "Create account"} <span>→</span></>}</button>
-        <div className="auth-toggle">{mode === "login" ? "New around here?" : "Already have an account?"} <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); setNotice(""); }}> {mode === "login" ? "Create an account" : "Sign in"}</button></div>
+        <div className="auth-toggle">{mode === "login" ? "New around here?" : "Already have an account?"} <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); setNotice(""); }}>{mode === "login" ? "Create an account" : "Sign in"}</button></div>
         <div className="auth-foot"><LockKeyhole size={13} /> Your password is handled securely by the backend.</div>
       </form>
     </section>
@@ -175,37 +173,20 @@ function App() {
     setChecking(true);
     try {
       const user = await request("/api/me");
-      setMe(user);
-      setAuthenticated(true);
-      setIsDemo(false);
-      setApiError("");
+      setMe(user); setAuthenticated(true); setIsDemo(false); setApiError("");
       const conversationData = await request("/api/conversations");
       const mapped = (conversationData || []).map((item) => {
         const person = item.person || {};
         const last = item.lastMessage || item.LastMessage || {};
-        return {
-          userName: person.userName,
-          displayName: person.displayName || person.userName,
-          color: "mint",
-          online: false,
-          time: timeLabel(last.sentAt || last.createdAt),
-          unread: 0,
-          preview: last.body || "Start a conversation",
-          messages: [],
-          lastMessageId: last.id
-        };
+        return { userName: person.userName, displayName: person.displayName || person.userName, color: "mint", online: false, time: timeLabel(last.sentAt || last.createdAt), unread: 0, preview: last.body || "Start a conversation", messages: [], lastMessageId: last.id };
       });
       setChats(mapped);
       setActiveId((current) => mapped.some((chat) => chat.userName === current) ? current : (mapped[0]?.userName || ""));
     } catch {
-      // If there is no valid session, show the UI preview and keep API-backed
-      // operations disabled until the user successfully signs in.
-      setAuthenticated(false);
-      setIsDemo(true);
-    } finally {
-      setChecking(false);
-    }
+      setAuthenticated(false); setIsDemo(true);
+    } finally { setChecking(false); }
   }
+
   useEffect(() => { loadApp(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [activeId, chats]);
   useEffect(() => {
@@ -265,9 +246,10 @@ function App() {
     }
     try {
       const csrf = await request("/api/csrf");
+      const token = csrf?.Token || csrf?.token;
       const payload = await request("/api/message", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(csrf?.Token ? { [csrf.headerName || "X-CSRF-TOKEN"]: csrf.Token } : {}) },
+        headers: { "Content-Type": "application/json", ...(token ? { [csrf.headerName || "X-CSRF-TOKEN"]: token } : {}) },
         body: JSON.stringify({ recipient: active.userName, body }),
       });
       const outgoing = { ...payload, own: true, sentAt: timeLabel(payload.sentAt || payload.createdAt) };
@@ -278,7 +260,8 @@ function App() {
   async function logout() {
     try {
       const csrf = await request("/api/csrf");
-      await request("/logout", { method: "POST", headers: csrf?.Token ? { [csrf.headerName || "X-CSRF-TOKEN"]: csrf.Token } : {} });
+      const token = csrf?.Token || csrf?.token;
+      await request("/logout", { method: "POST", headers: token ? { [csrf.headerName || "X-CSRF-TOKEN"]: token } : {} });
     } catch {}
     setAuthenticated(false); setMe(null); setIsDemo(true); setActiveId("rahul_sharma"); setShowInfo(false);
   }
@@ -292,14 +275,13 @@ function App() {
       <div className="rail__main">
         <button className="rail-button rail-button--active" title="Chats"><MessageCircle size={21} /><span>Chats</span></button>
         <button className="rail-button" title="Contacts" onClick={() => { setSearchMode("people"); inputRef.current?.focus(); }}><Users size={21} /><span>People</span></button>
-        <button className="rail-button" title="Saved"><Archive size={21} /><span>Saved</span></button>
+        <button className="rail-button" title="Saved" onClick={() => setToast("Saved messages are coming soon.")}><Archive size={21} /><span>Saved</span></button>
       </div>
       <div className="rail__bottom">
         <button className="rail-button" title="Help" onClick={() => setToast("CHAT-ME help: choose a chat to start messaging.")}><CircleHelp size={20} /><span>Help</span></button>
         <button className="profile-button" title={me?.displayName || me?.userName}><Avatar name={me?.displayName || me?.userName || "You"} color="mint" /></button>
       </div>
     </aside>
-
     <section className={`sidebar ${mobileListOpen ? "sidebar--mobile-open" : ""}`}>
       <header className="sidebar__header">
         <div><p className="eyebrow sidebar__eyebrow">YOUR INBOX</p><h1>Messages<span className="live-dot" /></h1></div>
@@ -318,7 +300,7 @@ function App() {
         <button className={filter === "unread" ? "tab tab--active" : "tab"} onClick={() => { setFilter(filter === "unread" ? "all" : "unread"); setSearchMode("chats"); }}>Unread</button>
         <button className={searchMode === "people" ? "tab tab--active" : "tab"} onClick={() => setSearchMode("people")}>Find people</button>
       </div>
-      {searchMode === "people" && authenticated ? <div className="people-panel">
+      {searchMode === "people" ? <div className="people-panel">
         <p className="section-label">{query ? "SEARCH RESULTS" : "FIND SOMEONE"}</p>
         {!query && <div className="empty-search"><span><Search size={20} /></span><strong>Who do you want to message?</strong><p>Search by username to start a new chat.</p></div>}
         {query && people.map((person) => <button className="people-result" key={person.userName} onClick={() => startChat(person)}><Avatar name={person.displayName || person.userName} color="lavender" /><span><strong>{person.displayName || person.userName}</strong><small>@{person.userName}</small></span><span className="result-arrow">↗</span></button>)}
@@ -327,17 +309,16 @@ function App() {
         <div className="section-label">{filter === "unread" ? "UNREAD CONVERSATIONS" : "RECENT CONVERSATIONS"} <span>{visibleChats.length}</span></div>
         {visibleChats.map((chat) => <button key={chat.userName} onClick={() => openChat(chat)} className={`chat-row ${activeId === chat.userName ? "chat-row--active" : ""}`}>
           <Avatar name={chat.displayName || chat.userName} color={chat.color} online={chat.online} />
-          <span className="chat-row__content"><span className="chat-row__top"><strong>{chat.displayName || chat.userName}</strong><time>{chat.time}</time></span><span className="chat-row__bottom"><span className="chat-row__preview">{chat.own && <CheckCheck size={14} className="preview-check" />}{chat.preview || "No messages yet"}</span>{chat.unread > 0 && <b className="unread-count">{chat.unread}</b>}</span></span>
+          <span className="chat-row__content"><span className="chat-row__top"><strong>{chat.displayName || chat.userName}</strong><time>{chat.time}</time></span><span className="chat-row__bottom"><span className="chat-row__preview">{chat.preview}</span>{chat.unread > 0 && <b className="unread-count">{chat.unread}</b>}</span></span>
         </button>)}
         {visibleChats.length === 0 && <div className="no-results">No conversations match that search.</div>}
       </div>}
-      <footer className="sidebar__footer"><span className="privacy-icon"><ShieldCheck size={15} /></span><span><strong>Conversations stay personal</strong><small>End-to-end calm, everyday connection.</small></span><ChevronDown size={15} /></footer>
+      <footer className="sidebar__footer"><span className="privacy-icon"><ShieldCheck size={15} /></span><span><strong>Conversations stay personal</strong><small>Everyday connection, in your space.</small></span><ChevronDown size={15} /></footer>
     </section>
-
     <section className={`conversation ${!mobileListOpen ? "conversation--mobile-open" : ""}`}>
       {active ? <>
         <header className="conversation__header">
-          <button className="mobile-back icon-button" onClick={() => setMobileListOpen(true)} aria-label="Back to chats"><ArrowLeft size={20} /></button>
+          <button className="mobile-back icon-button" onClick={() => setMobileListOpen(true)} aria-label="Back to chats"><span>←</span></button>
           <Avatar name={active.displayName || active.userName} color={active.color} online={active.online} />
           <button className="conversation__person" onClick={() => setShowInfo(!showInfo)}><strong>{active.displayName || active.userName}</strong><span>{active.online ? <><i className="status-dot" /> Online now</> : `@${active.userName}`}</span></button>
           <div className="conversation__actions"><button className="icon-button" title="Voice call" onClick={() => setToast("Voice calls are not connected yet.")}><Phone size={18} /></button><button className="icon-button" title="Video call" onClick={() => setToast("Video calls are not connected yet.")}><Video size={19} /></button><span className="action-divider" /><button className={`icon-button ${showInfo ? "icon-button--selected" : ""}`} title="Conversation details" onClick={() => setShowInfo(!showInfo)}><MoreVertical size={20} /></button></div>
@@ -346,10 +327,13 @@ function App() {
         <div className="message-scroll">
           <div className="encryption-note"><LockKeyhole size={13} /><span>Messages are stored in your CHAT-ME account.</span></div>
           <div className="date-divider"><span>TODAY</span></div>
-          {loadingChat ? <div className="loading-messages"><div className="spinner" /> Loading conversation…</div> : activeMessages.map((msg, index) => <div key={msg.id || index} className={`message-line ${msg.own || msg.sender === me?.userName || msg.sender === "you" ? "message-line--own" : ""}`}>
-            {index === 0 && <span className="message-avatar"><Avatar name={msg.own ? me?.displayName || me?.userName || "You" : active.displayName || active.userName} color={msg.own ? "mint" : active.color} /></span>}
-            <div className="message-bubble"><p>{msg.body}</p><span className="message-meta">{msg.sentAt || timeLabel(msg.createdAt) || ""}{(msg.own || msg.sender === me?.userName || msg.sender === "you") && <CheckCheck size={14} className="message-read" />}</span></div>
-          </div>)}
+          {loadingChat ? <div className="loading-messages"><div className="spinner" /> Loading conversation…</div> : activeMessages.map((msg, index) => {
+            const own = Boolean(msg.own || msg.sender === me?.userName || msg.sender === "you");
+            return <div key={msg.id || index} className={`message-line ${own ? "message-line--own" : ""}`}>
+              <span className="message-avatar"><Avatar name={own ? me?.displayName || me?.userName || "You" : active.displayName || active.userName} color={own ? "mint" : active.color} /></span>
+              <div className="message-bubble"><p>{msg.body}</p><span className="message-meta">{msg.sentAt || timeLabel(msg.createdAt) || ""}{own && <CheckCheck size={14} className="message-read" />}</span></div>
+            </div>;
+          })}
           {activeMessages.length === 0 && !loadingChat && <div className="empty-conversation"><span className="empty-conversation__icon"><MessageCircle size={24} /></span><h3>Start with a hello</h3><p>Your conversation with {active.displayName || active.userName} starts right here.</p><button onClick={() => { setMessage("Hey! 👋"); inputRef.current?.focus(); }}>Say hello <span>→</span></button></div>}
           <div ref={bottomRef} />
         </div>
@@ -365,12 +349,10 @@ function App() {
         </div>
       </> : <div className="welcome-pane"><Brand /><span className="welcome-pane__illustration"><MessageCircle size={42} /><Sparkles size={20} /></span><h2>Your next good conversation<br /><em>starts here.</em></h2><p>Choose a conversation or find someone new to say hello to.</p><button className="primary-button" onClick={() => { setSearchMode("people"); inputRef.current?.focus(); }}>Find someone <span>→</span></button><small><LockKeyhole size={13} /> Personal conversations, one message at a time.</small></div>}
     </section>
-
     {showInfo && active && <aside className="info-panel"><div className="info-panel__header"><strong>Contact details</strong><button className="icon-button" onClick={() => setShowInfo(false)}><X size={18} /></button></div><div className="info-panel__person"><Avatar name={active.displayName || active.userName} color={active.color} large /><h3>{active.displayName || active.userName}</h3><p>@{active.userName}</p><span className="contact-badge"><i className={active.online ? "status-dot" : "status-dot status-dot--off"} />{active.online ? "Online now" : "CHAT-ME contact"}</span></div><div className="info-panel__section"><span>ABOUT THIS CHAT</span><p>Just you and {active.displayName || active.userName}. Keep the conversation going.</p></div><div className="info-panel__option"><Bell size={17} /><span>Notifications</span><span className="option-value">On</span></div><div className="info-panel__option"><Search size={17} /><span>Search messages</span><ChevronDown size={15} /></div><div className="info-panel__foot"><ShieldCheck size={15} /> Your conversation, your space.</div></aside>}
     <div className="app-corner"><span className={`connection-indicator ${isDemo ? "connection-indicator--demo" : ""}`} />{isDemo ? "PREVIEW MODE" : "CONNECTED"}<span>·</span> CHAT-ME v1.0</div>
     {toast && <div className="toast"><Check size={16} />{toast}<button onClick={() => setToast("")}><X size={14} /></button></div>}
     <button className="logout-fab" title="Sign out" onClick={logout}><LogOut size={17} /></button>
   </main>;
 }
-
 export default App;
