@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive, ArrowLeft, Bell, Check, CheckCheck, ChevronDown, CircleHelp,
-  Download, EllipsisVertical, FileText, Image as ImageIcon, LockKeyhole,
+  EllipsisVertical, FileText, Image as ImageIcon, LockKeyhole,
   LogOut, MessageCircle, MoreVertical, Paperclip, Phone, Plus, Search,
-  Send, Settings, Smile, Sparkles, UserRound, Users, Video, X, PanelLeftClose,
-  PanelLeftOpen, ShieldCheck, Menu
+  Send, Smile, Sparkles, UserRound, Users, Video, X, ShieldCheck
 } from "lucide-react";
 import "./styles.css";
 
