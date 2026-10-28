@@ -332,3 +332,18 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+.preview-link {
+  display: block;
+  width: 100%;
+  margin-top: 13px;
+  padding: 9px 5px 0;
+  border: 0;
+  color: #6d9a7e;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+}
+.preview-link:hover { color: #24744f; text-decoration: underline; }
