@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import "./styles.css";
 
-const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:8080").replace(/\/$/, "");
+const API_URL = (import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? "" : "http://localhost:8080")).replace(/\/$/, "");
 
 const demoChats = [
   { userName: "rahul_sharma", displayName: "Rahul Sharma", online: true, color: "mint", time: "8:42 PM", unread: 2, preview: "Bro, pushed the latest changes 🚀", messages: [
