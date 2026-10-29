@@ -224,7 +224,10 @@ function App() {
   useEffect(() => {
     if (!authenticated || isDemo || !me?.userName) return undefined;
 
-    const socketUrl = `${API_URL.replace(/^http/, "ws")}/ws`;
+    const socketProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const socketUrl = API_URL
+      ? `${API_URL.replace(/^http/, "ws")}/ws`
+      : `${socketProtocol}//${window.location.host}/ws`;
     const socket = new WebSocket(socketUrl);
 
     socket.onmessage = (event) => {
@@ -284,8 +287,22 @@ function App() {
       }
     };
 
+    socket.onopen = () => {
+      setApiError((current) =>
+        current === "Live updates are unavailable. You can still refresh chats manually."
+          ? ""
+          : current
+      );
+    };
+
     socket.onerror = () => {
       setApiError("Live updates are unavailable. You can still refresh chats manually.");
+    };
+
+    socket.onclose = (event) => {
+      if (!event.wasClean) {
+        setApiError("Live updates disconnected. Refresh the page to reconnect.");
+      }
     };
 
     return () => socket.close();
