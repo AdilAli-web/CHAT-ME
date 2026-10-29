@@ -28,6 +28,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in your .env file}
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/chatme?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
+      APP_FRONTEND_ORIGINS: "http://localhost:5173,http://localhost:3000"
       SERVER_PORT: 8080
     depends_on:
       db:
