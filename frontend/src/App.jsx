@@ -255,9 +255,12 @@ function App() {
             (item) => String(item.id) === String(incoming.id)
           );
 
-          const mergedMessages = alreadyAdded || !isOpenPeer
-            ? currentMessages
-            : [...currentMessages, normalized];
+          // The sender also receives the WebSocket broadcast. Let the POST
+          // response render the sender's copy; this handler only deduplicates it.
+          const shouldAppend = isOpenPeer && !own && !alreadyAdded;
+          const mergedMessages = shouldAppend
+            ? [...currentMessages, normalized]
+            : currentMessages;
 
           const updated = current
             ? {
