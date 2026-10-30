@@ -229,6 +229,7 @@ function App() {
       ? `${API_URL.replace(/^http/, "ws")}/ws`
       : `${socketProtocol}//${window.location.host}/ws`;
     const socket = new WebSocket(socketUrl);
+    const pendingOutgoingIds = new Set();
 
     socket.onmessage = (event) => {
       try {
@@ -247,12 +248,16 @@ function App() {
         };
 
         setChats((items) => {
-          const exists = items.some((chat) => chat.userName === peer);
           const current = items.find((chat) => chat.userName === peer);
-          const alreadyAdded = current?.messages?.some(
-            (message) => String(message.id) === String(incoming.id)
+          const exists = Boolean(current);
+          const currentMessages = current?.messages || [];
+          const alreadyAdded = currentMessages.some(
+            (item) => String(item.id) === String(incoming.id)
           );
-          if (alreadyAdded) return items;
+
+          const mergedMessages = alreadyAdded || !isOpenPeer
+            ? currentMessages
+            : [...currentMessages, normalized];
 
           const updated = current
             ? {
@@ -260,11 +265,9 @@ function App() {
                 preview: incoming.body || current.preview,
                 time: normalized.sentAt || "now",
                 unread: !isOpenPeer && !own
-                  ? (current.unread || 0) + 1
+                  ? (current.unread || 0) + (alreadyAdded ? 0 : 1)
                   : current.unread || 0,
-                messages: isOpenPeer
-                  ? [...(current.messages || []), normalized]
-                  : (current.messages || []),
+                messages: mergedMessages,
               }
             : {
                 userName: peer,
@@ -373,7 +376,19 @@ function App() {
         body: JSON.stringify({ recipient: active.userName, body }),
       });
       const outgoing = { ...payload, own: true, sentAt: timeLabel(payload.sentAt || payload.createdAt) };
-      setChats((items) => items.map((chat) => chat.userName === activeId ? { ...chat, messages: [...(chat.messages || []), outgoing], preview: body, time: outgoing.sentAt } : chat));
+      setChats((items) => items.map((chat) => {
+        if (chat.userName !== activeId) return chat;
+        const messages = chat.messages || [];
+        const alreadyAdded = messages.some(
+          (item) => String(item.id) === String(outgoing.id)
+        );
+        return {
+          ...chat,
+          messages: alreadyAdded ? messages : [...messages, outgoing],
+          preview: body,
+          time: outgoing.sentAt,
+        };
+      }));
     } catch (err) { setMessage(body); setApiError(err.message || "Message could not be sent."); }
   }
 
