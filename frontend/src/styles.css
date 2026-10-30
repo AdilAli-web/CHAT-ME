@@ -347,3 +347,83 @@ button:disabled { cursor: not-allowed; opacity: .65; }
   text-align: center;
 }
 .preview-link:hover { color: #24744f; text-decoration: underline; }
+
+
+
+/* Readability and responsive workspace refinements */
+:root { font-size: 16px; }
+body { font-size: 15px; }
+.app-shell { grid-template-columns: 88px minmax(330px, 390px) minmax(0, 1fr); }
+.rail { padding-top: 26px; }
+.rail-button span { font-size: 12px; }
+.sidebar__header { min-height: 116px; padding: 26px 25px 20px; }
+.sidebar__header h1 { font-size: 28px; }
+.sidebar__eyebrow { font-size: 10px; }
+.sidebar__search { height: 49px; margin: 18px 20px 14px; }
+.sidebar__search input { font-size: 14px; }
+.sidebar__tabs { gap: 7px; padding: 0 20px 15px; }
+.tab { font-size: 12px; min-height: 36px; padding: 0 11px; }
+.section-label { font-size: 10px; letter-spacing: 1.35px; }
+.chat-row { min-height: 76px; gap: 13px; padding: 13px 14px; }
+.chat-row__top strong { font-size: 14px; }
+.chat-row__top time { font-size: 11px; }
+.chat-row__bottom { margin-top: 6px; }
+.chat-row__preview { font-size: 12px; }
+.conversation__header { height: 82px; padding: 0 27px; }
+.conversation__person strong { font-size: 15px; }
+.conversation__person span { font-size: 12px; }
+.message-scroll { padding: 28px clamp(28px, 4vw, 64px) 24px; }
+.encryption-note { font-size: 11px; padding: 9px 13px; }
+.date-divider { margin: 22px 0 28px; font-size: 10px; }
+.message-line { gap: 10px; max-width: min(78%, 760px); margin-bottom: 14px; }
+.message-avatar .avatar { width: 35px; height: 35px; font-size: 11px; border-radius: 12px; }
+.message-bubble { padding: 13px 16px 10px; border-radius: 15px; }
+.message-bubble p { font-size: 15px; line-height: 1.55; }
+.message-meta { font-size: 10px; }
+.composer-wrap { padding: 0 clamp(22px, 3vw, 48px) 20px; }
+.composer-hint { font-size: 11px; margin-bottom: 9px; }
+.composer { min-height: 66px; padding: 8px 10px; }
+.composer textarea { font-size: 15px; line-height: 1.45; }
+.composer__tools .icon-button { width: 40px; height: 42px; }
+.send-button { width: 46px; height: 46px; }
+.composer-disclaimer { font-size: 10px; margin-top: 11px; }
+.composer-disclaimer > span { font-size: 9px; }
+.sidebar__footer { min-height: 70px; }
+.sidebar__footer strong { font-size: 11px; }
+.sidebar__footer small { font-size: 10px; }
+.empty-conversation h3 { font-size: 21px; }
+.empty-conversation p { font-size: 13px; }
+.empty-conversation button { font-size: 12px; min-height: 42px; padding: 0 16px; }
+.api-warning { font-size: 13px; padding: 12px 24px; }
+.info-panel { width: min(340px, 38vw); }
+.auth-copy > p { font-size: 16px; }
+.auth-points span { font-size: 14px; }
+.auth-card { padding: 38px; }
+.auth-card h2 { font-size: 27px; }
+.auth-card__sub { font-size: 13px; }
+.field-label { font-size: 12px; }
+.text-field { height: 48px; font-size: 14px; }
+.auth-toggle, .auth-toggle button { font-size: 12px; }
+.auth-foot { font-size: 11px; }
+
+@media (min-width: 1500px) {
+  .app-shell { grid-template-columns: 96px minmax(360px, 420px) minmax(0, 1fr); }
+  .sidebar__header h1 { font-size: 30px; }
+  .message-bubble p { font-size: 16px; }
+}
+@media (max-width: 1100px) {
+  .app-shell { grid-template-columns: 72px minmax(290px, 340px) minmax(0, 1fr); }
+  .message-scroll { padding-left: 24px; padding-right: 24px; }
+  .message-bubble p { font-size: 14px; }
+}
+@media (max-width: 600px) {
+  .sidebar__header { min-height: 94px; }
+  .sidebar__header h1 { font-size: 25px; }
+  .chat-row__top strong { font-size: 14px; }
+  .message-scroll { padding: 18px 14px 16px; }
+  .message-line { max-width: 92%; }
+  .message-bubble p { font-size: 14px; }
+  .composer textarea { font-size: 14px; }
+  .composer-wrap { padding: 0 10px 14px; }
+  .composer { min-height: 58px; }
+}
