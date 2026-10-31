@@ -203,3 +203,264 @@ npm run dev
 ```
 
 The UI uses preview data when the backend has no authenticated session; messages sent in preview mode are local to the browser session. See [frontend setup and integration notes](frontend/README.md) for backend URL, CORS, CSRF, and current limitations.
+
+
+---
+
+# Recent additions: frontend, real-time chat, and Docker
+
+The sections above document the original backend design and API. The project has since grown into a full-stack, containerized chat application. This section adds the newer implementation details while keeping the original README material intact.
+
+## What's been added
+
+### 1. React + Vite frontend
+
+The `frontend/` directory contains a responsive, WhatsApp-inspired one-to-one messaging interface built with React 18, Vite, plain CSS, and Lucide icons.
+
+Current frontend capabilities include:
+
+- Login and account-registration screens connected to the backend.
+- A responsive chat workspace with a conversation list and message view.
+- Username-prefix people search, with a short input debounce.
+- Opening a conversation and loading its message history.
+- Sending messages through the REST API.
+- Receiving live message events through the authenticated WebSocket connection.
+- Conversation details, unread filters, mobile navigation, and a preview/demo mode.
+
+The frontend uses `credentials: "include"` on HTTP requests so the browser sends the session cookie established by Spring Security. Its API base URL can be configured with `VITE_API_URL`; during local development it defaults to `http://localhost:8080`.
+
+**Preview mode:** users can explore the interface with sample conversations when they do not have an authenticated backend session. Messages in preview mode are held in frontend React state; they are not saved to MySQL or delivered to another user.
+
+**Not implemented yet:** attachment buttons, file/image sharing, voice calls, and video calls are UI placeholders. The project currently implements text messaging, not media transfer or calling.
+
+### 2. Session authentication and browser security
+
+The application uses Spring Security form login and an HTTP session rather than JWT authentication.
+
+- Registration is handled by the application at `POST /api/register`.
+- Login is processed by Spring Security at `POST /api/login` using form fields named `username` and `password`.
+- Passwords are encoded with BCrypt before they are stored.
+- `GET /api/csrf` exposes the CSRF token and header name for browser requests.
+- The frontend sends the CSRF token on protected POST requests and includes browser credentials.
+- The authenticated request principal is used by the backend to identify the current user; clients do not choose the sender identity.
+
+The backend's CORS configuration allows the local Vite and frontend origins with credentials. The WebSocket handshake also checks the authenticated principal and an existing HTTP session. Keep the allowed origins narrow when changing deployment settings.
+
+### 3. Real-time message delivery
+
+The project combines REST APIs for durable message operations with WebSocket events for live updates.
+
+1. The frontend submits a message to `POST /api/message`.
+2. `ChatController` passes the request DTO and authenticated username to `ChatService`.
+3. The service validates the recipient and message body, rejects self-messaging, and persists the message through `ChatMessageRepo`.
+4. The service registers a transaction synchronization callback.
+5. Only after the database transaction commits does the callback call `LiveUpdates.publish(...)`.
+6. `LiveUpdates` serializes the saved message and sends it to active WebSocket sessions belonging to the sender or recipient.
+7. The connected frontend processes the event and updates the relevant chat preview and open conversation.
+
+This ordering is intentional: a live event is not published before the message has successfully committed to the database. REST remains the source for loading conversation history; WebSocket is used to notify already-connected clients about new messages.
+
+The WebSocket endpoint is `/ws`. The handler maintains a concurrent registry of active connections and removes sessions when they close or become unusable. The handshake interceptor stores the associated HTTP session so the handler can check whether it is still valid.
+
+### 4. Docker and Docker Compose
+
+The repository now includes Dockerfiles for the backend and frontend plus a root `docker-compose.yml`. Compose starts three services:
+
+| Service | Image/build | Responsibility | Host port |
+|---|---|---|---|
+| `db` | `mysql:8.4` | Persistent MySQL database | `3307` |
+| `backend` | `./CHAT-ME` | Spring Boot REST API and WebSocket server | `8080` |
+| `frontend` | `./frontend` | Nginx serving the built React app | `3000` |
+
+The MySQL data directory is stored in the named `mysql_data` volume, so recreating containers does not normally remove the database contents. The backend waits for the database health check before starting.
+
+Inside the Compose network, the backend connects to MySQL using the service hostname `db:3306`, not `localhost`. The frontend container serves the static Vite build through Nginx. Nginx proxies `/api/` requests to `backend:8080` and upgrades `/ws` requests to the backend WebSocket endpoint.
+
+The backend Dockerfile uses a multi-stage build: Maven and Java 21 build the Spring Boot JAR, then a smaller Java 21 runtime image launches it. The frontend Dockerfile builds the React app with Node.js and copies the static output into an Nginx image.
+
+#### Run the full stack with Docker Compose
+
+From the repository root, create a local `.env` file containing the database password expected by Compose:
+
+```env
+DB_PASSWORD=change-this-to-a-local-password
+```
+
+Then run:
+
+```bash
+docker compose up --build
+```
+
+Open the frontend at [http://localhost:3000](http://localhost:3000). The backend is exposed at [http://localhost:8080](http://localhost:8080), and the MySQL host port is `3307`.
+
+To stop the services:
+
+```bash
+docker compose down
+```
+
+To stop the services and also delete the persisted database volume (destructive):
+
+```bash
+docker compose down -v
+```
+
+Do not commit `.env` or real credentials. Use a strong local password and configure production secrets through the deployment environment rather than committing them to the repository.
+
+## Full application flow
+
+### A. First-time account registration
+
+```text
+React registration form
+        |
+        | POST /api/register (JSON + CSRF token)
+        v
+ChatController
+        |
+        v
+ChatService.register()
+        |
+        +--> validate and normalize submitted values
+        +--> check username uniqueness
+        +--> BCrypt-encode password
+        |
+        v
+AccountRepo.save()
+        |
+        v
+MySQL accounts table
+        |
+        v
+Person DTO returned to frontend
+```
+
+The password hash is stored in the account entity; the API response is a `Person` DTO and does not include the password.
+
+### B. Login and application initialization
+
+```text
+React login form
+        |
+        +--> GET /api/csrf
+        |
+        +--> POST /api/login (form-encoded credentials + CSRF)
+                         |
+                         v
+              Spring Security filter chain
+                         |
+                         +--> UserDetailsService loads Account
+                         +--> BCrypt verifies submitted password
+                         +--> HTTP session is established
+                         |
+                         v
+              Frontend requests GET /api/me
+                         |
+                         v
+              Load GET /api/conversations
+                         |
+                         v
+              Open authenticated WebSocket /ws
+```
+
+After login, the browser retains the session cookie and sends it with subsequent API and WebSocket requests. The backend uses the principal attached to that session to determine who is making each request.
+
+### C. Opening a chat
+
+```text
+User selects a conversation
+        |
+        v
+GET /api/message/{peer}?before={cursor}
+        |
+        v
+ChatController -> ChatService.history()
+        |
+        v
+ChatMessageRepo.history(...)
+        |
+        v
+MySQL: messages in either direction, ID below cursor
+        |
+        v
+Up to 50 rows, newest-first from repository
+        |
+        v
+Service reverses page for chronological display
+        |
+        v
+React renders the conversation
+```
+
+History uses cursor-based pagination. The first page uses a large cursor; older pages can use the oldest message ID already loaded. The repository fetches at most 50 rows per page.
+
+### D. Sending and receiving a live message
+
+```text
+Sender presses Send
+        |
+        v
+POST /api/message
+        |
+        v
+ChatController -> ChatService.send()
+        |
+        +--> validate recipient and body
+        +--> reject self-message / unknown recipient
+        +--> save message inside transaction
+        |
+        v
+Transaction commits
+        |
+        v
+afterCommit() -> LiveUpdates.publish()
+        |
+        +--> serialize saved message as JSON
+        +--> find active sender/recipient WebSocket sessions
+        +--> send event to matching connections
+                          |
+                          v
+                 Recipient's React client
+                          |
+                          v
+                Update chat list / open chat
+```
+
+The database commit happens before the WebSocket event is published. If the save transaction fails, the after-commit callback does not publish a message that was not committed.
+
+## Updated architecture at a glance
+
+```text
+                  Browser
+          React + Vite frontend
+                  |
+       HTTP REST  |  WebSocket /ws
+                  |
+           Nginx (Docker)
+                  |
+           Spring Boot API
+       +----------+-----------+
+       |          |           |
+  Controller   Security   WebSocket handler
+       |          |           |
+       v          v           v
+  ChatService  HTTP session  LiveUpdates
+       |
+  +----+----------------+
+  |                     |
+Repositories        after-commit
+  |                 notification
+  v                     |
+ MySQL <----------------+
+(accounts, chat_messages)
+```
+
+## Notes and current limitations
+
+- The application is a one-to-one text chat. Group chats, message editing/deletion, delivery/read receipts, typing indicators, attachments, and calling are not implemented as backend features.
+- The frontend contains preview/demo data. Preview messages are not persisted.
+- WebSocket reconnect/backoff and end-to-end browser integration tests still need work.
+- The current test suite is not a substitute for integration tests covering registration, CSRF, session authentication, CORS, history pagination, and live delivery.
+- The local Compose database name is `chatme`; the local non-container `application.properties` database name is `chat`. Compose supplies an override JDBC URL for the containerized backend.
+- When running frontend and backend separately, use the Vite URL and backend URL documented in `frontend/README.md`. When running through Compose, access the Nginx frontend on port `3000`.
